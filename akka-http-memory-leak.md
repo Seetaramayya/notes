@@ -26,8 +26,23 @@
      - connect to local port using jmx
 
 
-- With AkkaHttp 10.0.13 and Akka 2.4.20 combination, Source.queue left some garbage which is not cleaned ![img.png](visualvm.png) 
+- With AkkaHttp 10.0.13 and Akka 2.4.20 combination, Source.queue left some garbage which is not cleaned ![img.png](visualvm.png)
+
+
+### Useful commands 
+
+- Take only live heap dump (before taking heap dump full GC will be triggered) 
+
+```shell
+sudo jmap -dump:live,format=b,file=/tmp/heapdump.hprof $pid
+```
+
+- `jcmd` with optional `-all` dumps all objects, including unreachable objects
 
 ### Resources
 
+- [jmap](https://docs.oracle.com/en/java/javase/11/tools/jmap.html#GUID-D2340719-82BA-4077-B0F3-2803269B7F41) documentation
+- [jcmd](https://docs.oracle.com/en/java/javase/14/docs/specs/man/jcmd.html) documentation
 - [jcmd dzone blog](https://dzone.com/articles/jcmd-one-jdk-command-line-tool-to-rule-them-all)
+- [AkkaHttp Memory leak](https://github.com/akka/akka-http/issues/1637) looks interesting, but it is with `10.0.11` and 
+  `akka-2.5.7`, in my case my akka http version is `10.0.13` and `akka-2.4.20` 
