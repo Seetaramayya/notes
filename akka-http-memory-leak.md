@@ -28,6 +28,80 @@
 
 - With AkkaHttp 10.0.13 and Akka 2.4.20 combination, Source.queue left some garbage which is not cleaned ![img.png](visualvm.png)
 
+- `pmap` is useful command how much OS allocated memory to particular process, for example 
+
+```shell
+sudo pmap 7056
+sudo pmap -x 7056
+sudo pmap -X 7056
+sudo pmap -XX 7056
+```
+In the output, you can see total memory allocated ![img.png](img.png)
+
+- Following code caused memory leak
+
+```scala
+val (streamPublisher, pub) = Source
+      .actorRef[AkkaStreamerResponse](16, OverflowStrategy.fail)
+      .withAttributes(Attributes.name("mystream-publisher"))
+      .toMat(Sink.asPublisher(fanout = true))(Keep.both)
+      .run()
+
+createActor(streamPublisher) ! StartStreaming
+```
+
+#### Theory for memory leak
+
+when ever I want to tear down streaming connection from server point of view, sending `Success` message to `streamPublisher`
+but in some cases I am not getting `Terminated` message (I am watching `streamPublisher`). Maybe some times message might lose 
+on either side (`Success` or `Terminated`) so implemented retry mechanism
+
+```scala
+streamPublisher ! Status.Success(Done)
+```
+
+#### Retry mechanism with kill switch
+
+I am not sure KillSwitch is required or not
+
+```scala
+val ((streamPublisher, killSwitch), pub) = Source
+        .actorRef[AkkaStreamerResponse](16, OverflowStrategy.fail)
+        .withAttributes(Attributes.name("mystream-publisher"))
+        .viaMat(KillSwitches.single)(Keep.both)
+        .toMat(Sink.asPublisher(fanout = true))(Keep.both)
+        .run()
+
+
+createActor(streamPublisher, killSwitch) ! StartStreaming
+
+class MyActor(streamPublisher: ActorRef, killSwitch: KillSwitch) extends Actor {
+  // Not that important code here ...
+  def shutdown(remainingRetries: Int): Receive = handleActorTerminations orElse {
+    case Shutdown if remainingRetries <= 0 => cleanUp()
+    case Shutdown =>
+      context.watch(streamPublisher)
+      streamPublisher ! Status.Success(Done)
+      context.system.scheduler.scheduleOnce(5.seconds, self, Shutdown)
+      context.become(shutdown(remainingRetries - 1))
+  }
+
+  private def shutdownStreamerWithRetry(): Unit = {
+    streamPublisher ! Status.Success(Done)
+    context.become(shutdown(10))
+    self ! Shutdown
+  }
+
+  private def cleanUp(): Unit = {
+    killSwitch.shutdown()
+    self ! PoisonPill
+  }
+
+  // Not that important code here ...
+  
+}
+```
+
 
 ### Useful commands 
 
