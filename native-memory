@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+pid=$(sudo jps | grep navcloud-server | cut -d ' ' -f1)
+date=$(date "+%Y-%m-%d")
+SLEEP_INTERVAL=1
+FILENAME="seeta.csv" #"memory-$date.csv"
+RAW_DATA="seeta-data-$date.txt" #"raw-native-data-$date.txt"
+
+# 5691: Native Memory Tracking:
+# Total: reserved=9752752KB, committed=2979840KB
+# - Java Heap (reserved=8388608KB, committed=2603008KB) (mmap: reserved=8388608KB, committed=2603008KB)
+# - Class (reserved=616525KB, committed=114633KB) (classes #20330) ( instance classes #19494, array classes #836) (malloc=2125KB #36136) (mmap: reserved=614400KB, committed=112508KB) ( Metadata: ) ( reserved=98304KB, committed=97280KB) ( used=95562KB) ( free=1718KB) ( waste=0KB =0.00%) ( Class space:) ( reserved=516096KB, committed=15228KB) ( used=14681KB) ( free=547KB) ( waste=0KB =0.00%)
+# - Thread (reserved=189973KB, committed=19741KB) (thread #184) (stack: reserved=189096KB, committed=18864KB) (malloc=662KB #1106) (arena=215KB #367)
+# - Code (reserved=134457KB, committed=33969KB) (malloc=2361KB #11999) (mmap: reserved=132096KB, committed=31608KB)
+# - GC (reserved=371525KB, committed=156825KB) (malloc=26913KB #324195) (mmap: reserved=344612KB, committed=129912KB)
+# - Compiler (reserved=651KB, committed=651KB) (malloc=518KB #1289) (arena=133KB #5)
+# - Internal (reserved=1342KB, committed=1342KB) (malloc=1310KB #3204) (mmap: reserved=32KB, committed=32KB)
+# - Other (reserved=1502KB, committed=1502KB) (malloc=1502KB #33)
+# - Symbol (reserved=27037KB, committed=27037KB) (malloc=24120KB #232330) (arena=2917KB #1)
+# - Native Memory Tracking (reserved=10093KB, committed=10093KB) (malloc=389KB #5513) (tracking overhead=9705KB)
+# - Arena Chunk (reserved=10584KB, committed=10584KB) (malloc=10584KB) - Logging (reserved=5KB, committed=5KB) (malloc=5KB #198)
+# - Arguments (reserved=20KB, committed=20KB) (malloc=20KB #539) - Module (reserved=205KB, committed=205KB) (malloc=205KB #1975)
+# - Synchronizer (reserved=217KB, committed=217KB) (malloc=217KB #1782)
+# - Safepoint (reserved=8KB, committed=8KB) (mmap: reserved=8KB, committed=8KB)
+
+
+extract_reserved_committed() {
+  (( $# == 2 )) || die 1 "extract_reserved_committed needs 2 parameters"
+  local __nmtoutput=$1
+  local __keyword=$2
+
+  result=$(echo $__nmtoutput | grep -Eo "$__keyword \(reserved=[0-9]+KB, committed=[0-9]+KB\)" | sed "s/$__keyword (reserved=//g" | sed 's/committed=//g' | sed 's/KB//g' | sed 's/)//g')
+
+ __result_reserved=$(echo $result | cut -d ',' -f1)
+ __result_committed=$(echo $result | cut -d ',' -f2)
+
+ echo "$__result_reserved $__result_committed"
+}
+
+
+TotalHeader='"Total Reserved", "Total Committed"'
+JavaHeapHeader='"Java Heap Reserved", "Java Heap Committed"'
+ClassHeader='"Class Reserved", "Class Committed"'
+ThreadHeader='"Thread Reserved", "Thread Committed"'
+CodeHeader='"Code Reserved", "Code Committed"'
+GCHeader='"GC Reserved", "GC Committed"'
+CompilerHeader='"Compiler Reserved", "Compiler Committed"'
+InternalHeader='"Internal Reserved", "Internal Committed"'
+OtherHeader='"Other Reserved", "Other Committed"'
+SymbolHeader='"Symbol Reserved", "Symbol Committed"'
+NativeMemoryHeader='"Native Memory Reserved", "Native Memory Committed"'
+
+# echo "$TotalHeader, $JavaHeapHeader, $ClassHeader, $ThreadHeader, $CodeHeader, $GCHeader, $CompilerHeader, $InternalHeader, $OtherHeader, $SymbolHeader, $NativeMemoryHeader" > "memory-$date.csv"
+
+for i in {1..100000}; do
+  echo "Taking native memory..."
+  native_memory_output=$(sudo jcmd $pid VM.native_memory)
+  echo $native_memory_output >> $RAW_DATA
+
+  total_reserved=$(echo $native_memory_output | grep -Eo "Total: reserved=[0-9]+KB, committed=[0-9]+KB" | sed 's/Total: reserved=//g' | sed 's/committed=//g' | sed 's/KB//g' | cut -d ',' -f1)
+  total_committed=$(echo $native_memory_output | grep -Eo "Total: reserved=[0-9]+KB, committed=[0-9]+KB" | sed 's/Total: reserved=//g' | sed 's/committed=//g' | sed 's/KB//g' | cut -d ',' -f2)
+
+  eval java_heap="($(extract_reserved_committed "$native_memory_output" "Java Heap"))"
+  eval class="($(extract_reserved_committed "$native_memory_output" "Class"))"
+  eval thread="($(extract_reserved_committed "$native_memory_output" "Thread"))"
+  eval code="($(extract_reserved_committed "$native_memory_output" "Code"))"
+  eval gc="($(extract_reserved_committed "$native_memory_output" "GC"))"
+  eval compiler="($(extract_reserved_committed "$native_memory_output" "Compiler"))"
+  eval internal="($(extract_reserved_committed "$native_memory_output" "Internal"))"
+  eval other="($(extract_reserved_committed "$native_memory_output" "Other"))"
+  eval symbol="($(extract_reserved_committed "$native_memory_output" "Symbol"))"
+  eval nmt="($(extract_reserved_committed "$native_memory_output" "Native Memory Tracking"))"
+
+  echo "$total_reserved, $total_committed, ${java_heap[0]}, ${java_heap[1]}, ${class[0]}, ${class[1]}, ${thread[0]}, ${thread[1]}, ${code[0]}, ${code[1]}, ${gc[0]}, ${gc[1]}, ${compiler[0]}, ${compiler[1]}, ${internal[0]}, ${internal[1]}, ${other[0]}, ${other[1]}, ${symbol[0]}, ${symbol[1]}, ${nmt[0]}, ${nmt[1]}" >> "$FILENAME"
+
+  echo "Sleeping for $SLEEP_INTERVAL seconds"
+  sleep $SLEEP_INTERVAL;
+done

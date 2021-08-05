@@ -36,7 +36,8 @@ sudo pmap -x 7056
 sudo pmap -X 7056
 sudo pmap -XX 7056
 ```
-In the output, you can see total memory allocated ![img.png](img.png)
+In the output, you can see total memory allocated ![img.png](img.png), maybe it is good to mention explicit stack size with 
+`-Xss1m` 1 MB is default value
 
 - Following code caused memory leak
 
@@ -102,13 +103,14 @@ class MyActor(streamPublisher: ActorRef, killSwitch: KillSwitch) extends Actor {
 }
 ```
 
+- Still low memory alters are coming so enabled `-XX:NativeMemoryTracking=detail` and collecting memory details every 10 seconds with `./native-memory` script
 
 ### Useful commands 
 
 - Take only live heap dump (before taking heap dump full GC will be triggered) 
 
 ```shell
-sudo jmap -dump:live,format=b,file=/tmp/heapdump.hprof $pid
+sudo jmap -dump:all,format=b,file=/tmp/heapdump.hprof $pid
 ```
 
 - `jcmd` with optional `-all` dumps all objects, including unreachable objects
@@ -119,4 +121,5 @@ sudo jmap -dump:live,format=b,file=/tmp/heapdump.hprof $pid
 - [jcmd](https://docs.oracle.com/en/java/javase/14/docs/specs/man/jcmd.html) documentation
 - [jcmd dzone blog](https://dzone.com/articles/jcmd-one-jdk-command-line-tool-to-rule-them-all)
 - [AkkaHttp Memory leak](https://github.com/akka/akka-http/issues/1637) looks interesting, but it is with `10.0.11` and 
-  `akka-2.5.7`, in my case my akka http version is `10.0.13` and `akka-2.4.20` 
+  `akka-2.5.7`, in my case my akka http version is `10.0.13` and `akka-2.4.20`
+- [Java command line options](https://docs.oracle.com/en/java/javase/11/tools/java.html#GUID-3B1CE181-CD30-4178-9602-230B800D4FAE)
