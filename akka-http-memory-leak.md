@@ -157,11 +157,24 @@ I am not sure it is good practice or not, but it works. I do not see those actor
  
   I do not think this is main issue, it is kind of bonus.
 
+## Approach to solve the problem
+
+- Took `heapdump` and try to analyse with VisualVM, could not find any issue in the heap 
+- With port forwarding connected remote jvm process to VisualVM for better insights and hoped to find something 
+- With `pmap` confirmed that issue is in the same process. Other process are not causing memory leak
+- Thought bytebuffers causing the problem, but they are not
+- Used [jxray](https://jxray.com/download) for better heap analysis, it pointed me to potential memory leak, but it is not. 
+  But in the process I found few actors were not closed properly fixed them.
+- Suspected jvm arguments and try to tweak them a bit
+- For sure, I thought native memory is causing the issue so enabled NMT and took periodically NMT metrics, but I could not see anything fishy
+- Finally with the help of [stackoverflow answer](https://stackoverflow.com/questions/53451103/java-using-much-more-memory-than-heap-size-or-size-correctly-docker-memory-limi) 
+  and [Andrei talk](https://vimeo.com/364039638) I found that `malloc` has on impact on RSS as well not just increase virtual address space. Used `jemalloc` to fix the issue
+
 ## Installation of jemalloc
 
 ```shell
 wget https://github.com/jemalloc/jemalloc/releases/download/3.0.0/jemalloc-3.0.0.tar.bz2
-gunzip jemalloc-3.0.0.tar.bz2
+tar xjf jemalloc-3.0.0.tar.bz2
 cd jemalloc-3.0.0
 sudo yum install gcc --assumeyes
 ./configure --enable-prof
