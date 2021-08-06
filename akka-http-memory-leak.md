@@ -105,6 +105,23 @@ class MyActor(streamPublisher: ActorRef, killSwitch: KillSwitch) extends Actor {
 
 - Still low memory alters are coming so enabled `-XX:NativeMemoryTracking=detail` and collecting memory details every 10 seconds with `./native-memory` script
 
+### Install jemalloc
+
+jemalloc is better memory allocator than `malloc`
+
+- Download the latest version https://github.com/jemalloc/jemalloc/releases/download/5.2.1/jemalloc-5.2.1.tar.bz2
+- Unzip, configure and make (if there is no gcc install with yum install gcc ... )
+- `.so` can be found in `lib` directory
+
+```shell
+cd jemalloc-5.2.1
+./configure --enable-prof & make
+cp lib/libjemalloc.so.1 /usr/lib64/
+ln -s /usr/lib64/libjemalloc.so.1 /usr/lib64/libjemalloc.so
+export LD_PRELOAD=/usr/lib64/libjemalloc.so
+export MALLOC_CONF="prof:true,prof_prefix:jeprof.out,lg_prof_interval:30"
+```
+
 ### Useful commands 
 
 - Take only live heap dump (before taking heap dump full GC will be triggered) 
@@ -115,12 +132,52 @@ sudo jmap -dump:all,format=b,file=/tmp/heapdump.hprof $pid
 
 - `jcmd` with optional `-all` dumps all objects, including unreachable objects
 
+# Conclusion
+
+## Problem & Solution
+
+I am very happy to fix this memory leak issue, there were so many suspects on the way but none of the suspects caused the issue. 
+In short, the problem is, OS says a process is using too much memory (`pmap -x`) but jvm says it is not using 
+memory (`jcmd 30284 VM.native_memory`). Then I came to know about allocator issue which is mentioned in the 
+[stackoverflow answer](https://stackoverflow.com/questions/53451103/java-using-much-more-memory-than-heap-size-or-size-correctly-docker-memory-limi) 
+gave me more insight about the memory allocation. I am not aware of the memory allocator issue. It seems there is a problem with `malloc`, 
+it requests big chunks of memory (64 MB) which lead to fragmentation and excessive memory usage. Based on the suggestion I build `jemalloc` and 
+exported `LD_PRELOAD` as environment variable. Then things started working better, thanks to `Andrei Pangin` for his stackoverflow answer and [talk](https://vimeo.com/364039638).
+
+
+```shell
+export LD_PRELOAD=/usr/lib64/libjemalloc.so
+export MALLOC_CONF="prof:true,prof_prefix:jeprof.out,lg_prof_interval:30"
+```
+
+## Bonus 
+
+  In the process I found there are some streaming actors are not closed properly so introduced retry mechanism with kill switch (code blocks are in the same page above). 
+I am not sure it is good practice or not, but it works. I do not see those actors anymore. How will I know it is good practice or not?
+ 
+  I do not think this is main issue, it is kind of bonus.
+
+## Installation of jemalloc
+
+```shell
+wget https://github.com/jemalloc/jemalloc/releases/download/3.0.0/jemalloc-3.0.0.tar.bz2
+gunzip jemalloc-3.0.0.tar.bz2
+cd jemalloc-3.0.0
+sudo yum install gcc --assumeyes
+./configure --enable-prof
+make
+cp lib/libjemalloc.so.1 /usr/lib64/
+ln -s /usr/lib64/libjemalloc.so.1 /usr/lib64/libjemalloc.so
+```
+
 ### Resources
 
 - [jmap](https://docs.oracle.com/en/java/javase/11/tools/jmap.html#GUID-D2340719-82BA-4077-B0F3-2803269B7F41) documentation
 - [jcmd](https://docs.oracle.com/en/java/javase/14/docs/specs/man/jcmd.html) documentation
 - [jcmd dzone blog](https://dzone.com/articles/jcmd-one-jdk-command-line-tool-to-rule-them-all)
+- [jemalloc](https://github.com/jemalloc/jemalloc)
 - [AkkaHttp Memory leak](https://github.com/akka/akka-http/issues/1637) looks interesting, but it is with `10.0.11` and 
   `akka-2.5.7`, in my case my akka http version is `10.0.13` and `akka-2.4.20`
 - [Java command line options](https://docs.oracle.com/en/java/javase/11/tools/java.html#GUID-3B1CE181-CD30-4178-9602-230B800D4FAE)
 - [Memory Footprint of a Java Process by Andrei Pangin](https://vimeo.com/364039638) very good talk
+- [Stack over flow with nice explanation](https://stackoverflow.com/questions/53451103/java-using-much-more-memory-than-heap-size-or-size-correctly-docker-memory-limi)
