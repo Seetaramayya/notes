@@ -194,3 +194,4 @@ ln -s /usr/lib64/libjemalloc.so.1 /usr/lib64/libjemalloc.so
 - [Java command line options](https://docs.oracle.com/en/java/javase/11/tools/java.html#GUID-3B1CE181-CD30-4178-9602-230B800D4FAE)
 - [Memory Footprint of a Java Process by Andrei Pangin](https://vimeo.com/364039638) very good talk
 - [Stack over flow with nice explanation](https://stackoverflow.com/questions/53451103/java-using-much-more-memory-than-heap-size-or-size-correctly-docker-memory-limi)
+- [jhiccup](https://github.com/giltene/jHiccup)
