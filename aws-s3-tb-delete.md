@@ -14,9 +14,7 @@ for k in 01-01 02-01 01-04 01-05 01-06 01-07 01-08 01-09 01-10 01-11 01-12 01-13
   aws s3 ls "s3://MY-FAMOUS-S3-BUCKET-NAME/blah/2018/$k/" | sed -nre "s|[0-9-]+ [0-9:]+ +[0-9]+ |/blah/2018/$k/|p" > file-of-keys-2018-$k &
 done
 ```
-
-
-1. `run.sh` looks like this ( executed with `nohup ./run.sh >> run.log &` in EC2 instance of type `m5.xlarge` for 24 hours to complete all the items)
+2. `run.sh` looks like this ( executed with `nohup ./run.sh >> run.log &` in EC2 instance of type `m5.xlarge` for 24 hours to complete all the items)
 ```shell
 #!/usr/bin/env bash
 
@@ -26,8 +24,7 @@ for filename in $(find . -not -name "*.log" -name "file*"); do
   ./bulk-delete2 $filename >> $filename.log || true
 done%
 ```
-
-1. `bulk-delete2` looks like this
+3. `bulk-delete2` looks like this
 
 ```shell
 #!/usr/bin/env bash
