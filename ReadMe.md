@@ -6,3 +6,4 @@ It is better to write down my own notes for infrequent tasks such as memory leak
 # Contents
 
 - [AkkaHttp memory leak analysis](./akka-http-memory-leak.md)
+- [AWS S3 TB data delete](./aws-s3-tb-delete.md)
