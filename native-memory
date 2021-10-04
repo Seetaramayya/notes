@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-pid=$(sudo jps | grep navcloud-server | cut -d ' ' -f1)
+pid=$(sudo jps | grep blah-service | cut -d ' ' -f1)
 date=$(date "+%Y-%m-%d")
 SLEEP_INTERVAL=1
 FILENAME="seeta.csv" #"memory-$date.csv"
